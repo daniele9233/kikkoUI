@@ -10,3 +10,11 @@ ansible.log
 *.swp
 *.swo
 *~
+
+# Dashboard
+dashboard/frontend/node_modules/
+dashboard/frontend/dist/
+dashboard/backend/__pycache__/
+dashboard/backend/**/__pycache__/
+dashboard/backend/.venv/
+.env
