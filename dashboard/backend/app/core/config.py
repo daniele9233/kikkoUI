@@ -8,7 +8,10 @@ class Settings(BaseSettings):
     # Paths
     ansible_project_dir: str = os.environ.get(
         "ANSIBLE_PROJECT_DIR",
-        str(Path(__file__).resolve().parents[4]),  # repo root
+        os.environ.get(
+            "ANSIBLE_PROJECT_ROOT",
+            str(Path(__file__).resolve().parents[3]),  # fallback: backend/
+        ),
     )
     history_dir: str = os.environ.get("HISTORY_DIR", "/tmp/kikkoui_history")
     data_dir: str = str(Path(__file__).resolve().parents[1] / "data")
