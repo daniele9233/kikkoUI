@@ -1,0 +1,99 @@
+---
+# Traefik Install Role
+# Uses helm upgrade --install (idempotent) and handles failed releases
+# Compatible with Traefik Helm chart v33+ (ports.web.http.redirections.entryPoint.to)
+
+- name: Check if Traefik Helm repo already exists
+  shell: helm repo list | grep -q "traefik"
+  register: traefik_repo_check
+  failed_when: false
+  changed_when: false
+
+- name: Add Traefik Helm repository
+  shell: helm repo add traefik {{ traefik_helm_repo_url }}
+  when: traefik_repo_check.rc != 0
+  register: traefik_repo_add
+  changed_when: "'has been added' in traefik_repo_add.stdout"
+
+- name: Update Helm repositories
+  shell: helm repo update
+  register: helm_update
+  changed_when: "'Update Complete' in helm_update.stdout"
+
+- name: Create Traefik namespace
+  shell: |
+    kubectl create namespace {{ traefik_namespace }} --dry-run=client -o yaml | kubectl apply -f -
+  register: namespace_result
+  changed_when: "'created' in namespace_result.stdout or 'configured' in namespace_result.stdout"
+
+- name: Check Traefik Helm release status
+  shell: helm status {{ traefik_release_name }} -n {{ traefik_namespace }} -o json 2>/dev/null | grep -o '"status":"[^"]*"' | head -1
+  register: traefik_release_status
+  failed_when: false
+  changed_when: false
+
+- name: Remove failed Traefik Helm release
+  shell: helm uninstall {{ traefik_release_name }} -n {{ traefik_namespace }}
+  when: traefik_release_status.rc == 0 and '"status":"failed"' in traefik_release_status.stdout
+  register: helm_uninstall
+  failed_when: false
+
+- name: Generate Traefik values file
+  template:
+    src: traefik-values.yaml.j2
+    dest: /tmp/traefik-values.yaml
+    mode: '0644'
+  register: values_file
+
+- name: Install/Upgrade Traefik using Helm
+  shell: >
+    helm upgrade --install {{ traefik_release_name }}
+    traefik/traefik
+    --namespace {{ traefik_namespace }}
+    --values /tmp/traefik-values.yaml
+    --timeout {{ traefik_helm_timeout }}
+    --wait
+  register: traefik_install
+  changed_when: traefik_install.rc == 0
+
+- name: Wait for Traefik pods to be ready
+  shell: |
+    kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=traefik \
+    -n {{ traefik_namespace }} --timeout={{ traefik_pod_wait_timeout }}
+  register: traefik_wait
+  changed_when: false
+  retries: 3
+  delay: 10
+  until: traefik_wait.rc == 0
+
+- name: Get Traefik pods status
+  shell: kubectl get pods -n {{ traefik_namespace }} -o wide
+  register: traefik_pods
+  changed_when: false
+
+- name: Get Traefik services
+  shell: kubectl get svc -n {{ traefik_namespace }}
+  register: traefik_services
+  changed_when: false
+
+- name: Display Traefik installation summary
+  debug:
+    msg:
+      - "=========================================="
+      - "Traefik Ingress Controller Installed!"
+      - "=========================================="
+      - "Namespace: {{ traefik_namespace }}"
+      - "Release: {{ traefik_release_name }}"
+      - "IngressClass: traefik (default)"
+      - "HTTP->HTTPS Redirect: {{ traefik_redirect_http_to_https }}"
+      - ""
+      - "Pods:"
+      - "{{ traefik_pods.stdout }}"
+      - ""
+      - "Services:"
+      - "{{ traefik_services.stdout }}"
+
+- name: Clean up temporary values file
+  file:
+    path: /tmp/traefik-values.yaml
+    state: absent

@@ -1,0 +1,12 @@
+# Logs
+ansible.log
+*.log
+
+# Retry files
+*.retry
+
+# Temporary files
+/tmp/
+*.swp
+*.swo
+*~

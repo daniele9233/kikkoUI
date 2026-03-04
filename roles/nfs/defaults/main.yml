@@ -1,0 +1,3 @@
+export_dir: "/share"
+backup_dir: "backup"
+k8s_dir: "k8s"

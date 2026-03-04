@@ -1,0 +1,4 @@
+# NFS exports managed by Ansible
+{{ export_dir }}/{{ backup_dir }}{% for client in nfs_clients %} {{ client }}(rw,sync,no_subtree_check,no_root_squash){% endfor %}
+
+{{ export_dir }}/{{ k8s_dir }}{% for client in nfs_clients %} {{ client }}(rw,sync,no_subtree_check,no_root_squash){% endfor %}

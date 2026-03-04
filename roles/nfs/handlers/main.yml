@@ -1,0 +1,7 @@
+---
+- name: reload exports
+  command: exportfs -ra
+  
+- name: export fs
+  command: exportfs -ra
+  listen: export fs

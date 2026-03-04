@@ -1,0 +1,42 @@
+---
+# Traefik Helm Chart Configuration
+traefik_namespace: "traefik"
+traefik_release_name: "traefik"
+traefik_chart_repo: "traefik"
+traefik_chart_repo_url: "https://traefik.github.io/charts"
+traefik_chart_name: "traefik"
+
+# Helm settings
+traefik_helm_timeout: "15m"
+
+# IngressClass
+traefik_ingressclass_enabled: true
+traefik_ingressclass_default: true
+
+# Entrypoints - exposed ports (container ports are managed by the chart)
+traefik_web_exposed_port: 80
+traefik_websecure_exposed_port: 443
+
+# HTTP to HTTPS redirect
+# Uses ports.web.http.redirections.entryPoint.to (Helm chart v33+)
+# Replaces the removed 'redirectTo' property
+traefik_redirect_http_to_https: true
+
+# Service type (NodePort for bare-metal / on-prem clusters)
+traefik_service_type: "NodePort"
+
+# Resource limits
+traefik_cpu_request: "100m"
+traefik_memory_request: "128Mi"
+traefik_cpu_limit: "300m"
+traefik_memory_limit: "256Mi"
+
+# Replica count
+traefik_replicas: 1
+
+# Pod wait timeout
+traefik_pod_wait_timeout: "300s"
+
+# Logging
+traefik_log_level: "ERROR"
+traefik_access_log_enabled: false

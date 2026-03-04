@@ -1,0 +1,81 @@
+---
+# Installa i prerequisiti NFS sui nodi del cluster
+
+- name: Detect OS family
+  setup:
+    gather_subset:
+      - '!all'
+      - '!min'
+      - 'distribution'
+
+- name: Install NFS utils on RedHat/CentOS/Rocky/AlmaLinux
+  yum:
+    name: nfs-utils
+    state: present
+  when: ansible_os_family == "RedHat"
+
+- name: Install NFS utils on Debian/Ubuntu (without update_cache first)
+  apt:
+    name: nfs-common
+    state: present
+    update_cache: no
+  when: ansible_os_family == "Debian"
+  ignore_errors: yes
+  register: nfs_install_result
+
+- name: Try to fix apt issues and retry if first attempt failed
+  when: ansible_os_family == "Debian" and nfs_install_result.failed
+  block:
+    - name: Remove problematic PostgreSQL repository
+      file:
+        path: /etc/apt/sources.list.d/pgdg.list
+        state: absent
+      ignore_errors: yes
+
+    - name: Clean apt cache
+      command: apt clean
+      ignore_errors: yes
+
+    - name: Update apt cache with cleaned repos
+      apt:
+        update_cache: yes
+        cache_valid_time: 0
+      ignore_errors: yes
+
+    - name: Retry installing NFS utils
+      apt:
+        name: nfs-common
+        state: present
+        update_cache: no
+
+- name: Install NFS utils on SUSE/openSUSE
+  zypper:
+    name: nfs-client
+    state: present
+  when: ansible_os_family == "Suse"
+
+- name: Start and enable rpcbind service
+  systemd:
+    name: rpcbind
+    state: started
+    enabled: yes
+  ignore_errors: yes
+
+- name: Test NFS mount capability
+  command: showmount -e {{ nfs_server }}
+  register: nfs_exports_test
+  ignore_errors: yes
+
+- name: Display available NFS exports
+  debug:
+    msg: |
+      NFS server {{ nfs_server }} exports:
+      {{ nfs_exports_test.stdout }}
+  when: nfs_exports_test.rc == 0
+
+- name: Warn if NFS server not reachable
+  debug:
+    msg: |
+      WARNING: Cannot reach NFS server {{ nfs_server }}
+      Error: {{ nfs_exports_test.stderr }}
+  when: nfs_exports_test.rc != 0

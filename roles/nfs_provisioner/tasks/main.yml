@@ -1,0 +1,104 @@
+---
+# Tasks per il ruolo nfs_provisioner - PIPELINE-SAFE
+# Installazione idempotente del Kubernetes nfs-subdir-external-provisioner
+
+- name: Ensure kubeconfig exists (fail early if not)
+  stat:
+    path: "{{ kubeconfig_path }}"
+  register: kubeconf
+
+- name: Fail if kubeconfig not found
+  fail:
+    msg: "{{ kubeconfig_path }} not present on target host. Run kubectl_setup role first or point KUBECONFIG to a valid file."
+  when: not kubeconf.stat.exists
+
+- name: Ensure helm is installed (fast check)
+  command: helm version --short
+  register: helm_check
+  ignore_errors: yes
+
+- name: Install Helm CLI if missing
+  when: helm_check.rc != 0
+  block:
+    - name: Create temp dir for helm
+      file:
+        path: "{{ helm_temp_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Download Helm tarball
+      get_url:
+        url: "{{ helm_download_url }}"
+        dest: "{{ helm_temp_dir }}/helm.tgz"
+        mode: '0644'
+
+    - name: Extract helm and move binary
+      unarchive:
+        src: "{{ helm_temp_dir }}/helm.tgz"
+        dest: "{{ helm_temp_dir }}"
+        remote_src: yes
+
+    - name: Move helm binary to /usr/local/bin
+      copy:
+        remote_src: yes
+        src: "{{ helm_temp_dir }}/linux-amd64/helm"
+        dest: "{{ helm_binary_path }}"
+        mode: '0755'
+
+- name: Add Helm repo for nfs-subdir-external-provisioner
+  ansible.builtin.command:
+    cmd: helm repo add {{ nfs_helm_repo_name }} {{ nfs_helm_repo_url }}
+  register: helm_repo_add
+  changed_when: "'already exists' not in helm_repo_add.stderr"
+  failed_when: helm_repo_add.rc != 0 and "'already exists' not in helm_repo_add.stderr"
+
+- name: Update Helm repos
+  ansible.builtin.command:
+    cmd: helm repo update
+  register: helm_repo_update
+  changed_when: "'...Successfully' in helm_repo_update.stdout"
+  failed_when: helm_repo_update.rc != 0
+
+- name: Ensure Helm repo is reachable (search)
+  command: helm search repo {{ nfs_helm_repo_search_name }} --max-col-width 80
+  register: helm_search
+
+- name: Set KUBECONFIG environment for kubectl/helm interactions
+  set_fact:
+    _kube_env: { 'KUBECONFIG': '{{ kubeconfig_path }}' }
+
+# Imposta le variabili per k8s export
+- name: Set k8s export variables
+  set_fact:
+    current_export_type: "k8s"
+
+- name: Process NFS export /share/k8s
+  include_tasks: process_nfs_export.yml
+
+# Imposta le variabili per backup export  
+- name: Set backup export variables
+  set_fact:
+    current_export_type: "backup"
+
+- name: Process NFS export /share/backup
+  include_tasks: process_nfs_export.yml
+
+- name: Show all StorageClasses
+  command: kubectl get sc -o wide
+  environment: "{{ _kube_env }}"
+  register: sc_list
+  changed_when: false
+
+- name: Filter NFS StorageClasses
+  shell: kubectl get sc -o wide | grep {{ nfs_storageclass_prefix }} || echo "No NFS StorageClasses found"
+  environment: "{{ _kube_env }}"
+  register: nfs_sc_list
+  changed_when: false
+
+- name: Display all storageclasses
+  debug:
+    var: sc_list.stdout_lines
+
+- name: Display NFS storageclasses found
+  debug:
+    var: nfs_sc_list.stdout_lines

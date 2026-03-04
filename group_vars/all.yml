@@ -1,0 +1,382 @@
+---
+# Variabili comuni per tutti gli host
+
+# Dominio e credenziali
+rancher_domain: "test.app.iac-svil.almaviva.it"
+rancher_password: "DanielE9233???"
+
+# Versioni software
+helm_version: "v3.11.0"
+rancher_version: "2.13.0"
+
+# Configurazione disco
+vg_name: "vg_rancher"
+lv_name: "lv_rancher"
+rancher_mount_point: "/var/lib/rancher"
+filesystem_type: "xfs"
+mount_options: "defaults,noatime"
+
+# Certificati
+fullchain_pem_file: "fullchain.pem"
+privkey_pem_file: "privkey.pem"
+cacerts_pem_file: "cacerts.pem"
+remote_cert_path: "/root"
+
+# Cluster configuration
+cluster_name: "ansible-safety"
+cluster_k8s_version: "v1.34.3+rke2r1"
+cluster_cni: "cilium"
+ansibleSshHost: "localhost"
+
+# Master node configuration (per kubectl setup sui new_managers)
+master_node_ip: "10.205.166.216"
+master_node_user: "root"
+# master_node_name usa rancher_domain (evita duplicazioni)
+kubeconfig_path: "/root/.kube/config"
+
+# NFS VARS ####
+nfsHostname: "nfs-server-01"
+IPnfs: "10.205.166.219"
+nfs_server_ip: "{{ IPnfs }}"
+
+# Directory NFS
+nfs_exports:
+  - "/share/k8s"
+  - "/share/backup"
+k8s_dir: "k8s"
+
+# ==============================================
+# NFS PROVISIONER - VARIABILI PIPELINE-SAFE
+# ==============================================
+
+# Export /share/k8s
+nfs_export_k8s_path: "/share/k8s"
+nfs_export_k8s_suffix: "k8s"
+nfs_export_k8s_release_name: "nfs-subdir-external-provisioner-k8s"
+nfs_export_k8s_namespace: "nfs-provisioner-k8s"
+nfs_export_k8s_storageclass_name: "nfs-k8s"
+
+# Export /share/backup
+nfs_export_backup_path: "/share/backup"
+nfs_export_backup_suffix: "backup"
+nfs_export_backup_release_name: "nfs-subdir-external-provisioner-backup"
+nfs_export_backup_namespace: "nfs-provisioner-backup"
+nfs_export_backup_storageclass_name: "nfs-backup"
+
+
+helm_temp_dir: "/tmp/helm_install"
+helm_download_url: "https://get.helm.sh/helm-v3.11.0-linux-amd64.tar.gz"
+helm_binary_path: "/usr/local/bin/helm"
+
+# NFS Helm Repository
+nfs_helm_repo_name: "nfs"
+nfs_helm_repo_url: "https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner"
+nfs_helm_repo_search_name: "nfs-subdir-external-provisioner"
+
+# NFS Provisioner Naming
+nfs_helm_release_prefix: "nfs-subdir-external-provisioner"
+nfs_namespace_prefix: "nfs-provisioner"
+nfs_storageclass_prefix: "nfs"
+
+nfs_helm_values_temp_path: "/tmp/nfs-helm-values"
+nfs_helm_chart_name: "nfs-subdir-external-provisioner"
+nfs_helm_timeout: "10m"
+nfs_helm_extra_args: "--atomic"
+nfs_rollout_timeout: "5m"
+# In group_vars/all.yml
+nfs_deployment_name: "nfs-subdir-external-provisioner"  # Cambiato
+nfs_pod_selector: "app=nfs-subdir-external-provisioner"  # Questo probabilmente è corretto
+
+# StorageClass Configuration
+nfs_make_storageclass_default: false
+nfs_access_mode: "ReadWriteMany"
+nfs_reclaim_policy: "Retain"  # o "Delete"
+
+# Provisioner Image Configuration
+nfs_provisioner_image_repository: "registry.k8s.io/sig-storage/nfs-subdir-external-provisioner"
+nfs_provisioner_image_tag: "v4.0.2"
+nfs_provisioner_image_pull_policy: "IfNotPresent"
+
+# Provisioner Resources
+nfs_provisioner_replica_count: 1
+nfs_provisioner_cpu_limit: "100m"
+nfs_provisioner_memory_limit: "128Mi"
+nfs_provisioner_cpu_request: "50m"
+nfs_provisioner_memory_request: "64Mi"
+
+# Cleanup Configuration
+nfs_cleanup_temp_files: true
+
+# Monitoring and Verification
+nfs_verify_deployment: true
+nfs_show_pod_logs: false  # Set to true for debugging
+nfs_wait_for_ready: true
+
+
+# Vecchie variabili (per compatibilità)
+IPClientNFS1: "10.205.166.216"
+IPClientNFS2: "10.205.166.218"
+IPClientNFS3: "10.205.166.217"
+IPClientNFS5: "10.205.166.214"
+IPClientNFS8: "10.205.166.215"
+
+# Nuova lista client NFS (versione consigliata)
+nfs_clients:
+  - "10.205.166.216"  # (master)
+  - "10.205.166.218"  # rke2-worker1 (worker)
+  - "10.205.166.214"  # rke2-worker2 (worker)
+  - "10.205.166.217"  # rke2-manager2 (new_manager)
+  - "10.205.166.215"  # rke2-worker3
+
+# Variabili blocco Rancher
+nginx_server_name: "test.app.iac-svil.almaviva.it"
+nginx_ssl_cert_path: "/etc/nginx/cert/fullchain.pem"
+nginx_ssl_key_path: "/etc/nginx/cert/privkey.pem"
+
+# Variabili blocco Multi-Servizi
+multi_services_server_names:
+  - "kibana.app.iac-svil.almaviva.it"
+  - "grafana.app.iac-svil.almaviva.it"
+  - "prometheus.app.iac-svil.almaviva.it"
+  - "harbor.app.iac-svil.almaviva.it"
+  - "pgadmin.app.iac-svil.almaviva.it"
+  - "kafkaui.app.iac-svil.almaviva.it"
+
+multi_services_ssl_cert_path: "/etc/nginx/cert/fullchain.pem"
+multi_services_ssl_key_path: "/etc/nginx/cert/privkey.pem"
+
+# Upstream servers
+rancher_servers_https:
+  - server: "10.205.166.216:443"
+    max_fails: 3
+    fail_timeout: "5s"
+
+
+rancher_ingress_https:
+  - server: "10.205.166.218:443"
+    max_fails: 3
+    fail_timeout: "5s"
+
+rancher_ingress_https_1:
+  - server: "10.205.166.214:443"
+    max_fails: 3
+    fail_timeout: "5s"
+
+rancher_ingress_https_2:
+  - server: "10.205.166.215:443"
+    max_fails: 3
+    fail_timeout: "5s"
+
+# Configurazione Nginx
+nginx_user: "www-data"
+nginx_worker_processes: 2
+nginx_worker_rlimit_nofile: 40000
+nginx_client_max_body_size: "2G"
+
+# Path directory certificati
+nginx_cert_dir: "/etc/nginx/cert"
+
+# Path locali certificati
+local_ssl_cert_path: "files/fullchain.pem"
+local_ssl_key_path: "files/privkey.pem"
+
+# Storage Class Name (variabile globale)
+storage_class_name: "nfs-k8s"
+
+# ==============================================
+# TRAEFIK INGRESS CONTROLLER CONFIGURATION
+# ==============================================
+traefik_namespace: "traefik"
+traefik_release_name: "traefik"
+traefik_service_type: "NodePort"
+traefik_helm_repo_url: "https://traefik.github.io/charts"
+
+# Prometheus/Monitoring configuration
+prometheus_namespace: "monitoring"
+grafana_password: "SecureGrafanaPassword123!"  # CAMBIA QUESTA PASSWORD
+prometheus_retention: "15d"
+prometheus_storage_size: "5Gi"
+grafana_storage_size: "3Gi"
+alertmanager_storage_size: "2Gi"
+
+# Ingress configuration
+prometheus_create_ingress: true
+grafana_domain: "grafana.app.iac-svil.almaviva.it"
+prometheus_domain: "prometheus.app.iac-svil.almaviva.it"
+
+# Resource configurations (optional overrides)
+prometheus_cpu_requests: "1000m"
+prometheus_memory_requests: "2Gi"
+prometheus_cpu_limits: "2000m"
+prometheus_memory_limits: "4Gi"
+
+# Timeout configurations
+helm_timeout: "15m"
+pod_wait_timeout: "5m"  # Ridotto per evitare blocchi lunghi
+
+# ==============================================
+# PGADMIN CONFIGURATION
+# ==============================================
+
+# Namespace e immagine
+pgadmin_namespace: "pgadmin"
+pgadmin_image: "dpage/pgadmin4:8.8"
+
+# Credenziali di accesso
+pgadmin_username: "admin@example.local"  # Cambia con la tua email preferita
+pgadmin_password: "Cambiami123!"         # CAMBIA QUESTA PASSWORD
+
+# Configurazione servizio
+pgadmin_service_type: "ClusterIP"
+
+# Storage configuration
+pgadmin_storage_size: "2Gi"
+pgadmin_storage_class: "nfs-k8s"  # Usa la storage class NFS già configurata
+
+# Ingress configuration
+pgadmin_hostname: "pgadmin.app.iac-svil.almaviva.it"
+
+# Timeout configuration
+pgadmin_rollout_timeout: "5m"
+
+
+# Helm Chart Configuration
+prometheus_release_name: "prometheus"
+prometheus_chart_repo: "prometheus-community"
+prometheus_chart_name: "kube-prometheus-stack"
+prometheus_chart_repo_url: "https://prometheus-community.github.io/helm-charts"
+
+# Prometheus detailed configuration
+prometheus_scrape_interval: "1m"
+prometheus_evaluation_interval: "1m"
+prometheus_retention_size: "2GiB"
+
+# Components enable/disable
+kubestate_metrics_enabled: true
+node_exporter_enabled: true
+grafana_enabled: true
+alertmanager_enabled: true
+
+# Grafana hostname (usa la variabile già definita)
+grafana_hostname: "{{ grafana_domain }}"
+prometheus_hostname: "{{ prometheus_domain }}"
+
+# Crea ingress (usa la variabile già definita)
+create_ingress: "{{ prometheus_create_ingress }}"
+
+# Storage class (usa la variabile già definita)
+prometheus_storage_class: "{{ storage_class_name }}"
+
+# Timeout settings per i task
+prometheus_pod_wait_timeout: "{{ pod_wait_timeout }}"
+
+# Variabili placeholder per compatibilità pipeline
+suffix: ""
+release_name: ""
+namespace: ""
+storageclass_name: ""
+export_path: ""
+
+# ==============================================
+# NETWORK CONNECTIVITY CHECK CONFIGURATION
+# ==============================================
+# RKE2 Network Configuration (basato sulla tua infra)
+rke2_cluster_cidr: "10.42.0.0/16"     # Pod Network Cilium
+rke2_service_cidr: "10.43.0.0/16"     # Service Network
+rke2_cluster_dns: "10.43.0.10"        # CoreDNS IP
+rke2_node_network: "10.205.166.0/24"  # I tuoi nodi
+
+# Infrastructure IPs (mappati dal tuo inventory)
+master_node_ips:
+  - "10.205.166.216"  # test.app.iac-svil.almaviva.it
+
+new_manager_ips:
+  - "10.205.166.217"  # rke2-manager2
+
+worker_node_ips:
+  - "10.205.166.218"  # rke2-worker1
+  - "10.205.166.214"  # rke2-worker2
+  - "10.205.166.215"  # rke2-worker3
+
+nginx_server_ips:
+  - "10.205.166.220"  # nginx
+
+nfs_server_ips:
+  - "10.205.166.219"  # nfs-server-01
+
+# Network check configuration
+network_check_timeout: 5
+network_check_generate_reports: true
+network_check_report_dir: "/tmp/network_reports"
+
+
+  #rancher_users:
+  # - username: "d.pascolini"
+  #  display_name: "Daniele Pascolini"
+  #  password: "SuperSecure123!"
+  #- username: "m.rossi"
+  #  display_name: "Mario Rossi"
+  #  password: "AnotherPass!"
+  #- username: "l.bello"
+  #  display_name: "Lello Bello"
+  #  password: "AnotherPass!"
+  #- username: "c.pasticcio"
+  #  display_name: "Ciccio Pasticcio"
+  #  password: "AnotherPass!"
+
+rancher_users:
+  - username: "s.abate.2023"
+    display_name: "Salvatore Abate"
+    password: "AnotherPass!"
+  - username: "a.rispo.2023"
+    display_name: "Antonio Rispo"
+    password: "AnotherPass!"
+  - username: "c.pani.20234"
+    display_name: "Carlo Pani"
+    password: "AnotherPass!"
+  - username: "c.demajo.2023"
+    display_name: "Claudio Demajo"
+    password: "AnotherPass!"
+  - username: "c.onorino.2023"
+    display_name: "Ciro Onorino"
+    password: "AnotherPass!"
+  - username: "d.tufano.2023"
+    display_name: "Domenico Tufano"
+    password: "AnotherPass!"
+  - username: "f.casolaro.2023"
+    display_name: "Fabio Casolaro"
+    password: "AnotherPass!"
+  - username: "g.iesce.2023"
+    display_name: "Giovanni Iesce"
+    password: "AnotherPass!"
+  - username: "m.avolio.2023"
+    display_name: "Marco Avolio"
+    password: "AnotherPass!"
+  - username: "p.viscione.2023"
+    display_name: "Paolo Viscione"
+    password: "AnotherPass!"
+  - username: "p.sassone.2023"
+    display_name: "Pietro Sassone"
+    password: "AnotherPass!"
+  - username: "r.ariosto.2023"
+    display_name: "Roberto Ariosto"
+    password: "AnotherPass!"
+
+# elenco assegnazioni owner
+# ============================================
+# 🔑 Rancher project owner assignments
+# ============================================
+project_owner_assignments:
+  - username: "d.tufano.2023"
+    project_name: "application"
+
+# ============================================
+# 🧱 Rancher projects definition
+# ============================================
+rancher_api_user: "admin"
+
+rancher_projects:
+  - name: "application"
+    description: "Main application project"
+  - name: "altroproject"
+    description: "latest"

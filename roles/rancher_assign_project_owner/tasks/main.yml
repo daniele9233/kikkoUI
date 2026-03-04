@@ -1,0 +1,137 @@
+---
+# ===============================================================
+# Role: rancher_assign_project_owner
+# Description: Assign users as owners to specific Rancher projects
+# ===============================================================
+
+- name: Authenticate to Rancher and get API token
+  check_mode: no
+  delegate_to: "{{ ansibleSshHost | default('localhost') }}"
+  uri:
+    url: "https://{{ rancher_domain }}/v3-public/localProviders/local?action=login"
+    method: POST
+    body_format: json
+    validate_certs: no
+    body:
+      username: "{{ rancher_api_user | default('admin') }}"
+      password: "{{ rancher_password }}"
+    return_content: yes
+    status_code: [200, 201]
+  register: rancher_login
+
+- name: Set Rancher API token fact
+  set_fact:
+    rancher_api_token: "{{ rancher_login.json.token }}"
+
+# ===============================================================
+# Get all projects to extract project IDs
+# ===============================================================
+- name: Get all projects from Rancher
+  check_mode: no
+  delegate_to: "{{ ansibleSshHost | default('localhost') }}"
+  uri:
+    url: "https://{{ rancher_domain }}/v3/projects"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ rancher_api_token }}"
+    validate_certs: no
+    return_content: yes
+  register: all_projects
+
+- name: Extract project IDs for each project name
+  set_fact:
+    rancher_project_ids: >-
+      {{
+        rancher_project_ids | default({}) |
+        combine({
+          item.project_name: (
+            (all_projects.json.data | selectattr('name', 'equalto', item.project_name) | list | first).id
+          )
+        })
+      }}
+  loop: "{{ project_owner_assignments }}"
+  when: all_projects.json.data | selectattr('name', 'equalto', item.project_name) | list | length > 0
+
+- name: Debug extracted project IDs
+  debug:
+    var: rancher_project_ids
+
+# ===============================================================
+# Get all users to extract user IDs
+# ===============================================================
+- name: Get all users from Rancher
+  check_mode: no
+  delegate_to: "{{ ansibleSshHost | default('localhost') }}"
+  uri:
+    url: "https://{{ rancher_domain }}/v3/users"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ rancher_api_token }}"
+    validate_certs: no
+  register: all_users
+
+- name: Debug users structure (first 2 users)
+  debug:
+    msg: "{{ all_users.json.data[:2] }}"
+
+- name: Build user ID mapping
+  set_fact:
+    rancher_user_ids: |
+      {%- set user_map = {} -%}
+      {%- for assignment in project_owner_assignments -%}
+        {%- for user in all_users.json.data -%}
+          {%- if user.username is defined and user.username == assignment.username -%}
+            {%- set _ = user_map.update({assignment.username: user.id}) -%}
+          {%- endif -%}
+        {%- endfor -%}
+      {%- endfor -%}
+      {{ user_map }}
+
+- name: Debug extracted user IDs
+  debug:
+    var: rancher_user_ids
+
+# ===============================================================
+# Assign project-owner role to users
+# ===============================================================
+- name: Assign project-owner role to users
+  delegate_to: "{{ ansibleSshHost | default('localhost') }}"
+  uri:
+    url: "https://{{ rancher_domain }}/v3/projectroletemplatebindings"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ rancher_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    validate_certs: no
+    body:
+      type: "projectRoleTemplateBinding"
+      roleTemplateId: "project-owner"
+      projectId: "{{ rancher_project_ids[item.project_name] }}"
+      userId: "{{ rancher_user_ids[item.username] }}"
+    status_code: [201, 409, 422]  # 409 = already exists, 422 = validation error
+  loop: "{{ project_owner_assignments }}"
+  when:
+    - rancher_project_ids[item.project_name] is defined
+    - rancher_user_ids[item.username] is defined
+  register: assigned_owners
+  ignore_errors: yes
+
+- name: Debug assignment results
+  debug:
+    msg: "User '{{ item.item.username }}' assigned as owner to project '{{ item.item.project_name }}' (status: {{ item.status }})"
+  loop: "{{ assigned_owners.results }}"
+  when:
+    - assigned_owners is defined
+    - item.skipped is not defined
+
+# ===============================================================
+# Error handling: show skipped assignments
+# ===============================================================
+- name: Show skipped assignments (project or user not found)
+  debug:
+    msg: "⚠️  SKIPPED: User '{{ item.item.username }}' -> Project '{{ item.item.project_name }}' (not found)"
+  loop: "{{ assigned_owners.results }}"
+  when:
+    - assigned_owners is defined
+    - item.skipped is defined

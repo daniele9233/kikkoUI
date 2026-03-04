@@ -1,0 +1,202 @@
+---
+- name: Create monitoring namespace
+  shell: |
+    kubectl create namespace {{ prometheus_namespace }} --dry-run=client -o yaml | kubectl apply -f -
+  register: namespace_result
+  changed_when: "'created' in namespace_result.stdout or 'configured' in namespace_result.stdout"
+
+- name: Check if Helm repo already exists
+  shell: helm repo list | grep -q "{{ prometheus_chart_repo }}"
+  register: helm_repo_check
+  failed_when: false
+  changed_when: false
+
+- name: Add Prometheus Community Helm repository
+  shell: helm repo add {{ prometheus_chart_repo }} {{ prometheus_chart_repo_url }}
+  when: helm_repo_check.rc != 0
+  register: helm_repo_add
+  changed_when: "'has been added' in helm_repo_add.stdout"
+
+- name: Update Helm repositories
+  shell: helm repo update
+  register: helm_update
+  changed_when: "'Update Complete' in helm_update.stdout"
+
+- name: Generate Prometheus values file
+  template:
+    src: prometheus-values.yaml.j2
+    dest: /tmp/prometheus-values.yaml
+    mode: '0644'
+  register: values_file
+
+- name: Check if Prometheus is already installed
+  shell: helm list -n {{ prometheus_namespace }} | grep -q "{{ prometheus_release_name }}"
+  register: prometheus_check
+  failed_when: false
+  changed_when: false
+
+- name: Install Prometheus using Helm
+  shell: >
+    helm install {{ prometheus_release_name }} 
+    {{ prometheus_chart_repo }}/{{ prometheus_chart_name }} 
+    --namespace {{ prometheus_namespace }} 
+    --values /tmp/prometheus-values.yaml 
+    --timeout {{ helm_timeout }} 
+    --wait
+  when: prometheus_check.rc != 0
+  register: prometheus_install
+  changed_when: prometheus_install.rc == 0
+
+- name: Upgrade Prometheus if already installed and values changed
+  shell: >
+    helm upgrade {{ prometheus_release_name }} 
+    {{ prometheus_chart_repo }}/{{ prometheus_chart_name }} 
+    --namespace {{ prometheus_namespace }} 
+    --values /tmp/prometheus-values.yaml 
+    --timeout {{ helm_timeout }} 
+    --wait
+  when: prometheus_check.rc == 0 and values_file.changed
+  register: prometheus_upgrade
+  changed_when: prometheus_upgrade.rc == 0
+
+- name: Wait for Prometheus StatefulSet to be ready
+  shell: |
+    kubectl get statefulset -n {{ prometheus_namespace }} | grep prometheus || echo "StatefulSet not found yet"
+    kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=prometheus \
+    -n {{ prometheus_namespace }} --timeout={{ pod_wait_timeout }} || true
+  register: prometheus_wait
+  changed_when: false
+
+- name: Wait for Grafana Deployment to be ready
+  shell: |
+    kubectl wait --for=condition=Available deployment/{{ prometheus_release_name }}-grafana \
+    -n {{ prometheus_namespace }} --timeout={{ pod_wait_timeout }} || true
+  register: grafana_wait
+  changed_when: false
+  when: grafana_enabled
+
+- name: Wait for AlertManager StatefulSet to be ready
+  shell: |
+    kubectl get statefulset -n {{ prometheus_namespace }} | grep alertmanager || echo "AlertManager StatefulSet not found yet"
+    kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=alertmanager \
+    -n {{ prometheus_namespace }} --timeout={{ pod_wait_timeout }} || true
+  register: alertmanager_wait
+  changed_when: false
+  when: alertmanager_enabled
+
+- name: Create Grafana Ingress
+  shell: |
+    cat <<EOF | kubectl apply -f -
+    apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    metadata:
+      name: grafana-ingress
+      namespace: {{ prometheus_namespace }}
+      annotations:
+        traefik.ingress.kubernetes.io/router.entrypoints: websecure
+        traefik.ingress.kubernetes.io/router.tls: "true"
+    spec:
+      ingressClassName: traefik
+      rules:
+        - host: {{ grafana_hostname }}
+          http:
+            paths:
+              - path: /
+                pathType: Prefix
+                backend:
+                  service:
+                    name: {{ prometheus_release_name }}-grafana
+                    port:
+                      number: 80
+    EOF
+  register: grafana_ingress
+  changed_when: "'created' in grafana_ingress.stdout or 'configured' in grafana_ingress.stdout"
+  when: create_ingress and grafana_enabled
+
+- name: Create Prometheus Ingress
+  shell: |
+    cat <<EOF | kubectl apply -f -
+    apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    metadata:
+      name: prometheus-ingress
+      namespace: {{ prometheus_namespace }}
+      annotations:
+        traefik.ingress.kubernetes.io/router.entrypoints: websecure
+        traefik.ingress.kubernetes.io/router.tls: "true"
+    spec:
+      ingressClassName: traefik
+      rules:
+        - host: {{ prometheus_hostname }}
+          http:
+            paths:
+              - path: /
+                pathType: Prefix
+                backend:
+                  service:
+                    name: {{ prometheus_release_name }}-kube-prometheus-prometheus
+                    port:
+                      number: 9090
+    EOF
+  register: prometheus_ingress
+  changed_when: "'created' in prometheus_ingress.stdout or 'configured' in prometheus_ingress.stdout"
+  when: create_ingress
+
+- name: Get all pods status in monitoring namespace
+  shell: kubectl get pods -n {{ prometheus_namespace }} -o wide
+  register: pods_status
+  changed_when: false
+
+- name: Get services in monitoring namespace
+  shell: kubectl get svc -n {{ prometheus_namespace }}
+  register: services_status
+  changed_when: false
+
+- name: Get PersistentVolumeClaims status
+  shell: kubectl get pvc -n {{ prometheus_namespace }}
+  register: pvc_status
+  changed_when: false
+
+- name: Get Ingress status
+  shell: kubectl get ingress -n {{ prometheus_namespace }}
+  register: ingress_status
+  changed_when: false
+  when: create_ingress
+
+- name: Display installation summary
+  debug:
+    msg:
+      - "=========================================="
+      - "Prometheus Stack Installation Completed!"
+      - "=========================================="
+      - "Namespace: {{ prometheus_namespace }}"
+      - "Release Name: {{ prometheus_release_name }}"
+      - "Storage Class: {{ prometheus_storage_class }}"
+      - ""
+      - "Pod Status:"
+      - "{{ pods_status.stdout }}"
+      - ""
+      - "Services:"
+      - "{{ services_status.stdout }}"
+      - ""
+      - "Persistent Volume Claims:"
+      - "{{ pvc_status.stdout }}"
+      - ""
+      - "{% if create_ingress %}Ingress Resources:{% endif %}"
+      - "{% if create_ingress %}{{ ingress_status.stdout }}{% endif %}"
+      - ""
+      - "Access Information:"
+      - "{% if create_ingress %}- Grafana Web UI: https://{{ grafana_hostname }}{% endif %}"
+      - "{% if create_ingress %}- Prometheus Web UI: https://{{ prometheus_hostname }}{% endif %}"
+      - "- Grafana Admin User: admin"
+      - "- Grafana Admin Password: {{ grafana_admin_password }}"
+      - ""
+      - "{% if not create_ingress %}Port-forward commands for local access:{% endif %}"
+      - "{% if not create_ingress %}- Prometheus UI: kubectl port-forward -n {{ prometheus_namespace }} svc/{{ prometheus_release_name }}-kube-prometheus-prometheus 9090:9090{% endif %}"
+      - "{% if not create_ingress %}- Grafana UI: kubectl port-forward -n {{ prometheus_namespace }} svc/{{ prometheus_release_name }}-grafana 3000:80{% endif %}"
+      - "{% if not create_ingress %}- AlertManager UI: kubectl port-forward -n {{ prometheus_namespace }} svc/{{ prometheus_release_name }}-kube-prometheus-alertmanager 9093:9093{% endif %}"
+
+- name: Clean up temporary values file
+  file:
+    path: /tmp/prometheus-values.yaml
+    state: absent

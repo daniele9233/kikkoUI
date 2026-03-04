@@ -1,0 +1,97 @@
+---
+
+- name: Authenticate to Rancher and get API token
+  delegate_to: "{{ ansibleSshHost }}"
+  uri:
+    url: "https://{{ rancher_domain }}/v3-public/localProviders/local?action=login"
+    method: POST
+    body_format: json
+    validate_certs: no
+    body:
+      username: "admin"
+      password: "{{ rancher_password }}"
+    return_content: yes
+    status_code: [200, 201]
+  register: rancher_login
+
+- name: Set Rancher API token fact
+  set_fact:
+    rancher_api_token: "{{ rancher_login.json.token }}"
+
+# ---------------------------------------------------------------------
+# CREAZIONE UTENTI
+# ---------------------------------------------------------------------
+- name: Create users in Rancher
+  delegate_to: "{{ ansibleSshHost }}"
+  uri:
+    url: "https://{{ rancher_domain }}/v3/users"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ rancher_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    validate_certs: no
+    body:
+      type: "user"
+      username: "{{ item.username }}"
+      password: "{{ item.password }}"
+      name: "{{ item.display_name }}"
+      mustChangePassword: true       # ✅ forza cambio password
+      enabled: true
+    status_code: [201, 409, 422]     # ✅ non fallisce se già esiste
+  loop: "{{ rancher_users }}"
+  register: created_users
+  ignore_errors: yes
+
+# ---------------------------------------------------------------------
+# RECUPERO ID UTENTE
+# ---------------------------------------------------------------------
+- name: Get all users from Rancher
+  delegate_to: "{{ ansibleSshHost }}"
+  uri:
+    url: "https://{{ rancher_domain }}/v3/users"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ rancher_api_token }}"
+    validate_certs: no
+  register: all_users
+
+- name: Extract user IDs for each username
+  set_fact:
+    rancher_user_ids: >-
+      {{
+        rancher_user_ids | default({}) |
+        combine({
+          item.username: (
+            (all_users.json.data | selectattr('username', 'equalto', item.username) | list | first).id
+          )
+        })
+      }}
+  loop: "{{ rancher_users }}"
+
+- name: Debug extracted user IDs
+  debug:
+    var: rancher_user_ids
+
+# ---------------------------------------------------------------------
+# ASSEGNAZIONE RUOLO STANDARD USER
+# ---------------------------------------------------------------------
+- name: Assign Standard User role to users
+  delegate_to: "{{ ansibleSshHost }}"
+  uri:
+    url: "https://{{ rancher_domain }}/v3/globalrolebindings"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ rancher_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    validate_certs: no
+    body:
+      type: "globalRoleBinding"
+      globalRoleId: "user"          # ✅ assegna il ruolo STANDARD USER
+      userId: "{{ rancher_user_ids[item.username] }}"
+    status_code: [201, 409]
+  loop: "{{ rancher_users }}"
+  when: rancher_user_ids[item.username] is defined
+  ignore_errors: yes
+

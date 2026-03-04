@@ -1,0 +1,11 @@
+---
+pgadmin_namespace: pgadmin
+pgadmin_image: dpage/pgadmin4:8.8
+pgadmin_username: admin@domain.local
+pgadmin_password: StrongPassw0rd!
+pgadmin_service_type: ClusterIP
+pgadmin_storage_size: 2Gi
+pgadmin_storage_class: nfs-k8s
+pgadmin_hostname: pgadmin.app.iac-svil.almaviva.it
+pgadmin_rollout_timeout: 5m
+

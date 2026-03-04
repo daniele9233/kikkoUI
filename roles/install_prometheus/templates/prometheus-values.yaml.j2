@@ -1,0 +1,110 @@
+# Prometheus Configuration Values
+prometheus:
+  prometheusSpec:
+    scrapeInterval: "{{ prometheus_scrape_interval }}"
+    evaluationInterval: "{{ prometheus_evaluation_interval }}"
+    retention: "{{ prometheus_retention }}"
+    retentionSize: "{{ prometheus_retention_size }}"
+    resources:
+      requests:
+        cpu: "{{ prometheus_cpu_requests }}"
+        memory: "{{ prometheus_memory_requests }}"
+      limits:
+        cpu: "{{ prometheus_cpu_limits }}"
+        memory: "{{ prometheus_memory_limits }}"
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: "{{ prometheus_storage_class }}"
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: "{{ prometheus_storage_size }}"
+    serviceMonitorNamespaceSelector: {}
+    serviceMonitorSelector: {}
+    ruleNamespaceSelector: {}
+    ruleSelector: {}
+    enableAdminAPI: true
+
+kubeStateMetrics:
+  enabled: {{ kubestate_metrics_enabled | lower }}
+
+nodeExporter:
+  enabled: {{ node_exporter_enabled | lower }}
+
+grafana:
+  enabled: {{ grafana_enabled | lower }}
+  adminPassword: "{{ grafana_admin_password }}"
+  persistence:
+    enabled: true
+    size: "{{ grafana_storage_size }}"
+    storageClassName: "{{ prometheus_storage_class }}"
+  ingress:
+    enabled: false
+    # Se vuoi abilitare l'ingress direttamente
+    # enabled: true
+    # hosts:
+    #   - grafana.app.iac-svil.almaviva.it
+    # tls:
+    #   - secretName: grafana-tls
+    #     hosts:
+    #       - grafana.app.iac-svil.almaviva.it
+
+alertmanager:
+  enabled: {{ alertmanager_enabled | lower }}
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: "{{ prometheus_storage_class }}"
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: "{{ alertmanager_storage_size }}"
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+
+# Disable some components that might cause issues
+defaultRules:
+  create: true
+  rules:
+    alertmanager: true
+    etcd: true
+    configReloaders: true
+    general: true
+    k8s: true
+    kubeApiserverAvailability: true
+    kubeApiserverBurnrate: true
+    kubeApiserverHistogram: true
+    kubeApiserverSlos: true
+    kubelet: true
+    kubeProxy: true
+    kubePrometheusGeneral: true
+    kubePrometheusNodeRecording: true
+    kubernetesApps: true
+    kubernetesResources: true
+    kubernetesStorage: true
+    kubernetesSystem: true
+    kubeScheduler: true
+    kubeStateMetrics: true
+    network: true
+    node: true
+    nodeExporterAlerting: true
+    nodeExporterRecording: true
+    prometheus: true
+    prometheusOperator: true
+
+# Prometheus Operator configuration
+prometheusOperator:
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"

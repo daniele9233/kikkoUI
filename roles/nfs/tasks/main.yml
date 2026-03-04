@@ -1,0 +1,29 @@
+---
+
+- name: Installing NFS
+  debug:
+    msg: "Installing NFS"
+
+- name: Ubuntu + single mode
+  include_tasks: nfs_ubuntu_single.yml
+  when:
+    - ansible_os_family == "Debian"
+    - nfs_mode == "single"
+
+- name: Ubuntu + cluster mode
+  include_tasks: nfs_ubuntu_cluster.yml
+  when:
+    - ansible_os_family == "Debian"
+    - nfs_mode == "cluster"
+
+- name: RedHat + single mode
+  include_tasks: nfs_redhat_single.yml
+  when:
+    - ansible_os_family == "RedHat"
+    - nfs_mode == "single"
+
+- name: RedHat + cluster mode
+  include_tasks: nfs_redhat_cluster.yml
+  when:
+    - ansible_os_family == "RedHat"
+    - nfs_mode == "cluster"

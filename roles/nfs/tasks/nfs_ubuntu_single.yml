@@ -1,0 +1,43 @@
+---
+- name: Installing nfs-common
+  apt:
+    name:
+      - nfs-common
+      - nfs-kernel-server
+    state: present
+    update_cache: yes
+
+- name: Creating directory
+  file:
+    state: directory
+    owner: nobody
+    group: nogroup
+    path: "{{ item }}"
+  loop:
+    - "{{ export_dir }}/{{ backup_dir }}"
+    - "{{ export_dir }}/{{ k8s_dir }}"
+
+- name: Debug nfs_clients variable
+  debug:
+    var: nfs_clients
+
+- name: Generate exports file from template
+  template:
+    src: exports.j2
+    dest: /etc/exports
+    backup: yes
+  notify: reload exports
+
+- name: Show exports file content
+  command: cat /etc/exports
+  register: exports_check
+
+- name: Display exports content
+  debug:
+    var: exports_check.stdout_lines
+
+- name: Restart and enable NFS services
+  systemd:
+    name: nfs-kernel-server
+    state: restarted
+    enabled: yes

@@ -1,0 +1,134 @@
+---
+- name: Ensure /root/.kube/config exists (fail early if not)
+  stat:
+    path: /root/.kube/config
+  register: kubeconf
+
+- name: Fail if kubeconfig not found (kubectl must be configured on target host)
+  fail:
+    msg: "/root/.kube/config not present on target host. Run kubectl_setup role first."
+  when: not kubeconf.stat.exists
+
+- name: Set KUBECONFIG environment for kubectl/helm interactions
+  set_fact:
+    _kube_env: { 'KUBECONFIG': '{{ kubeconfig_path }}' }
+
+- name: Check that storageclass exists (warning only)
+  command: kubectl get sc {{ pgadmin_storage_class }}
+  environment: "{{ _kube_env }}"
+  register: sc_check
+  ignore_errors: yes
+
+- name: Warn if storageclass not found
+  debug:
+    msg: "StorageClass {{ pgadmin_storage_class }} not found on cluster — il PVC potrebbe non essere soddisfatto."
+  when: sc_check.rc != 0
+
+# === HEALTH CHECK PER TRAEFIK INGRESS CONTROLLER ===
+- name: Wait for Traefik ingress controller to be ready
+  shell: kubectl get pods -n traefik -l app.kubernetes.io/name=traefik --field-selector=status.phase=Running --no-headers | wc -l
+  environment: "{{ _kube_env }}"
+  register: traefik_pods_count
+  until: traefik_pods_count.stdout|int >= 1
+  retries: 20  # 10 minuti max (20 * 30 sec)
+  delay: 30
+
+- name: Wait for Traefik service endpoints to be available
+  shell: kubectl get endpoints -n traefik traefik -o jsonpath='{.subsets[*].addresses[*].ip}' 2>/dev/null || echo "none"
+  environment: "{{ _kube_env }}"
+  register: traefik_endpoints
+  until: traefik_endpoints.stdout != "none" and traefik_endpoints.stdout != ""
+  retries: 15  # 7.5 minuti max (15 * 30 sec)
+  delay: 30
+
+- name: Verify Traefik IngressClass is registered
+  shell: kubectl get ingressclass traefik
+  environment: "{{ _kube_env }}"
+  register: traefik_ingressclass_check
+  retries: 10  # 5 minuti max
+  delay: 30
+  until: traefik_ingressclass_check.rc == 0
+
+- name: Display Traefik readiness status
+  debug:
+    msg: |
+      === TRAEFIK INGRESS CONTROLLER STATUS ===
+      Pods Running: {{ traefik_pods_count.stdout }}
+      Service Endpoints: {{ 'Available' if traefik_endpoints.stdout != 'none' and traefik_endpoints.stdout != '' else 'Not Available' }}
+      IngressClass Ready: {{ 'Yes' if traefik_ingressclass_check.rc == 0 else 'No' }}
+
+      Traefik Ingress Controller is ready for Ingress creation!
+
+- name: Ensure temporary manifest directory
+  file:
+    path: /tmp/pgadmin_manifests
+    state: directory
+    mode: '0755'
+
+- name: Create pgAdmin namespace manifest
+  copy:
+    dest: /tmp/pgadmin_manifests/pgadmin-namespace.yaml
+    content: |
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: {{ pgadmin_namespace }}
+
+- name: Apply pgAdmin namespace
+  command: kubectl apply -f /tmp/pgadmin_manifests/pgadmin-namespace.yaml
+  environment: "{{ _kube_env }}"
+
+- name: Render pgAdmin Deployment manifest
+  template:
+    src: pgadmin-deployment.yaml.j2
+    dest: /tmp/pgadmin_manifests/pgadmin-deployment.yaml
+
+- name: Render pgAdmin Service manifest
+  template:
+    src: pgadmin-service.yaml.j2
+    dest: /tmp/pgadmin_manifests/pgadmin-service.yaml
+
+- name: Render pgAdmin Ingress manifest
+  template:
+    src: pgadmin-ingress.yaml.j2
+    dest: /tmp/pgadmin_manifests/pgadmin-ingress.yaml
+
+# APPLICA DEPLOYMENT E SERVICE PRIMA DELL'INGRESS
+- name: Apply pgAdmin Deployment and Service (without Ingress)
+  shell: kubectl apply -f /tmp/pgadmin_manifests/pgadmin-deployment.yaml -f /tmp/pgadmin_manifests/pgadmin-service.yaml
+  environment: "{{ _kube_env }}"
+
+- name: Wait for pgAdmin deployment rollout
+  command: kubectl -n {{ pgadmin_namespace }} rollout status deploy/pgadmin --timeout={{ pgadmin_rollout_timeout }}
+  environment: "{{ _kube_env }}"
+  register: rollout
+  failed_when: rollout.rc != 0
+
+# APPLICA L'INGRESS SOLO DOPO CHE IL DEPLOYMENT È PRONTO
+- name: Apply pgAdmin Ingress (after deployment is ready)
+  command: kubectl apply -f /tmp/pgadmin_manifests/pgadmin-ingress.yaml
+  environment: "{{ _kube_env }}"
+  retries: 10
+  delay: 10
+
+- name: Verify pgAdmin Ingress is created successfully
+  shell: kubectl get ingress -n {{ pgadmin_namespace }} pgadmin
+  environment: "{{ _kube_env }}"
+  register: ingress_check
+  retries: 10
+  delay: 10
+
+- name: Display pgAdmin deployment summary
+  debug:
+    msg: |
+      === PGADMIN DEPLOYMENT SUMMARY ===
+      Namespace: {{ pgadmin_namespace }}
+      Image: {{ pgadmin_image }}
+      Hostname: {{ pgadmin_hostname }}
+      Storage: {{ pgadmin_storage_size }} ({{ pgadmin_storage_class }})
+      
+      Access: https://{{ pgadmin_hostname }}
+      Username: {{ pgadmin_username }}
+      Password: {{ pgadmin_password }}
+      
+      Deployment completed successfully!

@@ -1,0 +1,25 @@
+---
+# Default variables for Prometheus installation
+# Tutte le variabili principali sono ora definite in group_vars/all.yml
+
+# Fallback values (usati solo se le variabili principali non sono definite)
+prometheus_namespace: "{{ prometheus_namespace | default('monitoring') }}"
+prometheus_release_name: "{{ prometheus_release_name | default('prometheus') }}"
+prometheus_chart_repo: "{{ prometheus_chart_repo | default('prometheus-community') }}"
+prometheus_chart_name: "{{ prometheus_chart_name | default('kube-prometheus-stack') }}"
+prometheus_chart_repo_url: "{{ prometheus_chart_repo_url | default('https://prometheus-community.github.io/helm-charts') }}"
+
+# Ingress configuration
+grafana_hostname: "{{ grafana_domain | default('grafana.app.iac-svil.almaviva.it') }}"
+prometheus_hostname: "{{ prometheus_domain | default('prometheus.app.iac-svil.almaviva.it') }}"
+create_ingress: "{{ prometheus_create_ingress | default(true) }}"
+
+# Storage configuration
+prometheus_storage_class: "{{ storage_class_name | default('nfs-k8s') }}"
+
+# Grafana configuration
+grafana_admin_password: "{{ grafana_password | default('admin') }}"
+
+# Timeout settings
+helm_timeout: "{{ helm_timeout | default(600) }}"
+pod_wait_timeout: "{{ pod_wait_timeout | default('5m') }}"

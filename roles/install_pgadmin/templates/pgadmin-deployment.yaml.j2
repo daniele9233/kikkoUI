@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgadmin
+  namespace: {{ pgadmin_namespace }}
+  labels:
+    app: pgadmin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pgadmin
+  template:
+    metadata:
+      labels:
+        app: pgadmin
+    spec:
+      containers:
+        - name: pgadmin
+          image: {{ pgadmin_image }}
+          env:
+            - name: PGADMIN_DEFAULT_EMAIL
+              value: "{{ pgadmin_username }}"
+            - name: PGADMIN_DEFAULT_PASSWORD
+              value: "{{ pgadmin_password }}"
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: pgadmin-data
+              mountPath: /var/lib/pgadmin
+      volumes:
+        - name: pgadmin-data
+          persistentVolumeClaim:
+            claimName: pgadmin-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pgadmin-pvc
+  namespace: {{ pgadmin_namespace }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ pgadmin_storage_size }}
+  storageClassName: {{ pgadmin_storage_class }}
+

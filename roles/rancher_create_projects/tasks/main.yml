@@ -1,0 +1,71 @@
+---
+# ===============================================================
+# Role: rancher_create_projects
+# Description: Create Rancher Projects (auto cluster detection)
+# ===============================================================
+
+- name: Authenticate to Rancher and get API token
+  delegate_to: localhost
+  uri:
+    url: "https://{{ rancher_domain }}/v3-public/localProviders/local?action=login"
+    method: POST
+    body_format: json
+    validate_certs: no
+    body:
+      username: "{{ rancher_api_user | default('admin') }}"
+      password: "{{ rancher_password }}"
+    return_content: yes
+    status_code: [200, 201]
+  register: rancher_login
+
+- name: Set Rancher API token fact
+  set_fact:
+    rancher_api_token: "{{ rancher_login.json.token }}"
+
+# ===============================================================
+# Detect Rancher Cluster ID automatically
+# ===============================================================
+- name: Get Rancher clusters
+  delegate_to: localhost
+  uri:
+    url: "https://{{ rancher_domain }}/v3/clusters"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ rancher_api_token }}"
+    validate_certs: no
+    return_content: yes
+    status_code: [200]
+  register: rancher_clusters
+
+- name: Set Rancher cluster ID fact (auto)
+  set_fact:
+    rancher_cluster_id: "{{ (rancher_clusters.json.data | first).id }}"
+
+# ===============================================================
+# Create Projects
+# ===============================================================
+- name: Create Rancher Projects
+  delegate_to: localhost
+  uri:
+    url: "https://{{ rancher_domain }}/v3/projects"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ rancher_api_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    validate_certs: no
+    body:
+      type: "project"
+      name: "{{ item.name }}"
+      description: "{{ item.description | default('') }}"
+      clusterId: "{{ rancher_cluster_id }}"
+    status_code: [201, 409]
+  loop: "{{ rancher_projects }}"
+  register: created_projects
+
+- name: Debug created projects
+  debug:
+    msg: "Project '{{ item.item.name }}' created or already exists (status: {{ item.status }})"
+  loop: "{{ created_projects.results }}"
+  when: created_projects is defined
+
