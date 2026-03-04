@@ -1,0 +1,219 @@
+{
+  "last_updated": "2026-03-04",
+  "source": "https://www.suse.com/suse-rancher/support-matrix/all-supported-versions/",
+  "rancher_versions": [
+    {
+      "version": "2.11.1",
+      "min_rke2": "v1.31.4+rke2r1",
+      "compatible_rke2": [
+        "v1.31.4+rke2r1",
+        "v1.31.5+rke2r1",
+        "v1.32.1+rke2r1",
+        "v1.32.2+rke2r1"
+      ],
+      "eol": false
+    },
+    {
+      "version": "2.11.0",
+      "min_rke2": "v1.31.4+rke2r1",
+      "compatible_rke2": [
+        "v1.31.4+rke2r1",
+        "v1.31.5+rke2r1",
+        "v1.32.1+rke2r1"
+      ],
+      "eol": false
+    },
+    {
+      "version": "2.10.3",
+      "min_rke2": "v1.30.8+rke2r1",
+      "compatible_rke2": [
+        "v1.30.8+rke2r1",
+        "v1.30.9+rke2r1",
+        "v1.31.4+rke2r1",
+        "v1.31.5+rke2r1"
+      ],
+      "eol": false
+    },
+    {
+      "version": "2.10.2",
+      "min_rke2": "v1.30.7+rke2r1",
+      "compatible_rke2": [
+        "v1.30.7+rke2r1",
+        "v1.30.8+rke2r1",
+        "v1.31.4+rke2r1"
+      ],
+      "eol": false
+    },
+    {
+      "version": "2.10.1",
+      "min_rke2": "v1.30.6+rke2r1",
+      "compatible_rke2": [
+        "v1.30.6+rke2r1",
+        "v1.30.7+rke2r1",
+        "v1.31.2+rke2r1",
+        "v1.31.3+rke2r1"
+      ],
+      "eol": false
+    },
+    {
+      "version": "2.9.5",
+      "min_rke2": "v1.29.12+rke2r1",
+      "compatible_rke2": [
+        "v1.29.12+rke2r1",
+        "v1.30.8+rke2r1",
+        "v1.30.9+rke2r1",
+        "v1.31.4+rke2r1"
+      ],
+      "eol": false
+    },
+    {
+      "version": "2.9.4",
+      "min_rke2": "v1.29.11+rke2r1",
+      "compatible_rke2": [
+        "v1.29.11+rke2r1",
+        "v1.30.7+rke2r1",
+        "v1.31.3+rke2r1"
+      ],
+      "eol": false
+    },
+    {
+      "version": "2.13.0",
+      "min_rke2": "v1.34.0+rke2r1",
+      "compatible_rke2": [
+        "v1.34.0+rke2r1",
+        "v1.34.1+rke2r1",
+        "v1.34.2+rke2r1",
+        "v1.34.3+rke2r1"
+      ],
+      "eol": false
+    }
+  ],
+  "rke2_versions": [
+    {
+      "version": "v1.34.3+rke2r1",
+      "k8s": "v1.34.3",
+      "supported_cni": ["calico", "canal", "cilium"],
+      "default_cni": "canal"
+    },
+    {
+      "version": "v1.34.2+rke2r1",
+      "k8s": "v1.34.2",
+      "supported_cni": ["calico", "canal", "cilium"],
+      "default_cni": "canal"
+    },
+    {
+      "version": "v1.34.1+rke2r1",
+      "k8s": "v1.34.1",
+      "supported_cni": ["calico", "canal", "cilium"],
+      "default_cni": "canal"
+    },
+    {
+      "version": "v1.34.0+rke2r1",
+      "k8s": "v1.34.0",
+      "supported_cni": ["calico", "canal", "cilium"],
+      "default_cni": "canal"
+    },
+    {
+      "version": "v1.32.2+rke2r1",
+      "k8s": "v1.32.2",
+      "supported_cni": ["calico", "canal", "cilium"],
+      "default_cni": "canal"
+    },
+    {
+      "version": "v1.32.1+rke2r1",
+      "k8s": "v1.32.1",
+      "supported_cni": ["calico", "canal", "cilium"],
+      "default_cni": "canal"
+    },
+    {
+      "version": "v1.31.5+rke2r1",
+      "k8s": "v1.31.5",
+      "supported_cni": ["calico", "canal", "cilium"],
+      "default_cni": "canal"
+    },
+    {
+      "version": "v1.31.4+rke2r1",
+      "k8s": "v1.31.4",
+      "supported_cni": ["calico", "canal", "cilium"],
+      "default_cni": "canal"
+    },
+    {
+      "version": "v1.31.3+rke2r1",
+      "k8s": "v1.31.3",
+      "supported_cni": ["calico", "canal", "cilium"],
+      "default_cni": "canal"
+    },
+    {
+      "version": "v1.31.2+rke2r1",
+      "k8s": "v1.31.2",
+      "supported_cni": ["calico", "canal", "cilium"],
+      "default_cni": "canal"
+    },
+    {
+      "version": "v1.30.9+rke2r1",
+      "k8s": "v1.30.9",
+      "supported_cni": ["calico", "canal", "cilium"],
+      "default_cni": "canal"
+    },
+    {
+      "version": "v1.30.8+rke2r1",
+      "k8s": "v1.30.8",
+      "supported_cni": ["calico", "canal", "cilium"],
+      "default_cni": "canal"
+    },
+    {
+      "version": "v1.30.7+rke2r1",
+      "k8s": "v1.30.7",
+      "supported_cni": ["calico", "canal", "cilium"],
+      "default_cni": "canal"
+    },
+    {
+      "version": "v1.30.6+rke2r1",
+      "k8s": "v1.30.6",
+      "supported_cni": ["calico", "canal", "cilium"],
+      "default_cni": "canal"
+    },
+    {
+      "version": "v1.29.12+rke2r1",
+      "k8s": "v1.29.12",
+      "supported_cni": ["calico", "canal", "cilium"],
+      "default_cni": "canal"
+    },
+    {
+      "version": "v1.29.11+rke2r1",
+      "k8s": "v1.29.11",
+      "supported_cni": ["calico", "canal", "cilium"],
+      "default_cni": "canal"
+    }
+  ],
+  "ingress_controllers": [
+    {
+      "name": "nginx-ingress",
+      "label": "NGINX Ingress Controller",
+      "description": "Standard Kubernetes NGINX ingress controller"
+    },
+    {
+      "name": "traefik",
+      "label": "Traefik",
+      "description": "Cloud-native edge router with automatic HTTPS"
+    }
+  ],
+  "cni_plugins": [
+    {
+      "name": "calico",
+      "label": "Calico",
+      "description": "Full networking & network policy with BGP support"
+    },
+    {
+      "name": "canal",
+      "label": "Canal",
+      "description": "Flannel networking + Calico network policies (RKE2 default)"
+    },
+    {
+      "name": "cilium",
+      "label": "Cilium",
+      "description": "eBPF-based networking, observability, and security"
+    }
+  ],
+  "ingress_cni_conflicts": {}
+}

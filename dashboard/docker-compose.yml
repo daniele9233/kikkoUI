@@ -1,0 +1,35 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    container_name: kikkoui-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../:/ansible-project:ro
+      - run-data:/tmp/ansible-runs
+    environment:
+      - ANSIBLE_PROJECT_ROOT=/ansible-project
+      - SECRET_KEY=change-me-in-production
+    restart: unless-stopped
+    networks:
+      - kikkoui
+
+  frontend:
+    build: ./frontend
+    container_name: kikkoui-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - kikkoui
+
+volumes:
+  run-data:
+
+networks:
+  kikkoui:
+    driver: bridge
